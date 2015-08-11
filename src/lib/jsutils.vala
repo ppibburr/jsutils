@@ -262,115 +262,113 @@ namespace JSUtils {
 			
 			return klass;
 		}	
-	
-		[CCode (has_target = false)]
-		public delegate LibInfo? init_lib(JSUtils.Context ctx);
 		
-		private static string[]? _search_paths = null;
-		public static string[] search_paths {
-			get {
-				if (_search_paths == null) {
-				    _search_paths = new string[0];	
-				    _search_paths += GLib.Environment.get_variable("JSUTILS_LIB_DIR") ?? @"/usr/lib/jsutils/$(JSUtils.VERSION)";
-				}
-				
-				return _search_paths;
-			}
-			
-			set {
-				_search_paths = value;
-			}
+		public ContextEnvironment get_environment() {
+			return ContextEnvironment.get_for_context(this);
 		}
 		
-		public static void _add_search_path(string path) {
-			if (path in search_paths) {
-			
-			} else {
-				_search_paths += path;
-			}
+		public void set_argv(string[] argv) {
+			get_environment().argv = argv;
 		}
-			
 		
-		private static Gee.HashMap<string, LibInfo?> _so_map = null;	
-		public static Gee.HashMap<string, LibInfo?> so_map {
-			get {
-				if (_so_map == null) {
-					_so_map =  new Gee.HashMap<string, LibInfo?>();	
+		public string[] get_argv() {
+			return get_environment().argv;
+		}
+		
+		public void set_file(string path) {
+			get_environment().file = path;
+		}
+		
+		public string? get_file() {
+			return get_environment().file;
+		}	
+		
+		public void set_env(string[] env) {
+			get_environment().environ = env;
+		}
+		
+		public string[] get_env() {
+			return get_environment().environ;
+		}	
+		
+		public string? set_variable(string v, string? val) {
+			return get_environment().set_variable(v, val);
+		}
+		
+		public string? get_variable(string v) {
+			return get_environment().get_variable(v);
+		}							
+		
+		public string[] get_search_paths() {
+			return get_environment().search_paths;
+		}
+		
+		public void add_search_path(string path) {
+			get_environment().add_search_path(path);
+		}
+		
+		public bool? require(string what) {
+			string path = search_file(get_search_paths(), what, "js");
+			
+			if (path != null) {
+				if (path in get_environment().required) {
+					return false;
 				}
 				
-				return _so_map;
+				exec_file(path);
+				get_environment().add_required(path);
+				return true;
 			}
+			
+			return null;
+		}
+		
+		public GLib.Value? exec_file(string path) {
+			string code;
+			FileUtils.get_contents(path, out code, null);
+			
+			return exec(code);
 		}
 		
 		public LibInfo? load_so(owned string name) {			
-			string path = name;
+			string path = search_file(get_search_paths(), name, "so");;
 			
-			if (!f_exist(path)) {
-				path = @"$(name).so";					
-				if (!f_exist(path)) {		
-					if (!f_exist(path)) {			
-						path = @"./$(name)";	
-						if (!f_exist(path)) {	
-							foreach (var search in search_paths) {
-								if (!f_exist(path)) {
-									path = @"$(search)/$(name)";
-									
-									if (!f_exist(path)) {
-										path = @"$(search)/$(name).so";
-								   
-										if (!f_exist(path)) {
-										
-											path = @"$(search)/$(name)/$(name).so";
-											
-											if (f_exist(path)) {
-												break;
-											}
-										}							
-									}				
-								}
-							}
-						}
-					}
-				}
-			} else {
-				JSUtils.debug(@"Says we have $path");
+			if (path in get_environment().required) {
+				return libinfo_by_name(path);
 			}
 			
-			if (!f_exist(path)) {
-				JSUtils.debug("no so found: %s\n".printf(path));
+			if (path == null) {
 				return null;
-			}			
+			}		
 			
+			get_environment().add_required(path);
+							
+					
 			name = GLib.Path.get_basename(path);
 			
 			var split = name.split(".");
 			name = split[0];
+            
+ 			if (libinfo_by_name(path) != null) {
+				var fun    = (init_lib)dlsym(so_map[path].handle, @"$(name)_init");
 			
-			JSUtils.debug("FIND_SO: %s\n".printf(path));
-			
-			if ("so" in split) {
-				
-			} else {
-				return null;
-			}
-			
-			if (name in so_map) {
-				var fun    = (init_lib)dlsym(so_map[name].handle, @"$(name)_init");
-				
 				var binders = fun(this);				
-				
-				return so_map[name];
-			}			
 			
+			    return so_map[path];
+			}           
+            			
 			JSUtils.debug(@"so: $name - $path");
-			var handle = dlopen(path, RTLD_LAZY);
-			var fun    = (init_lib)dlsym(handle, @"$(name)_init");
 			
-			var binders = fun(this);
+			var handle = dlopen(path, RTLD_LAZY);
+			debug("handle %s %s".printf(name, handle == null ? "n" : "k"));
+			var fun    = (init_lib)dlsym(handle, @"$(name)_init");
+			debug("func %s".printf(fun == null ? "n" : "k"));
+			var binders = fun((JSUtils.Context)this);
             
             JSUtils.debug(@"so $path init-ed");
+            
             binders.handle = handle;
-            so_map[name] = binders;
+            so_map[path] = binders;
             
 			return binders;
 		}	
@@ -382,8 +380,31 @@ namespace JSUtils {
 			
 			return true;
 		}
-	}
 		
+		[CCode (has_target = false)]
+		public delegate LibInfo? init_lib(JSUtils.Context ctx);
+
+		private static Gee.HashMap<string, LibInfo?> _so_map = null;	
+		public static Gee.HashMap<string, LibInfo?> so_map {
+			get {
+				if (_so_map == null) {
+					_so_map =  new Gee.HashMap<string, LibInfo?>();	
+				}
+				
+				return _so_map;
+			}
+		}		
+			
+		public static LibInfo? libinfo_by_name(string name) {
+			if (name in so_map) {
+				return so_map[name];
+			}
+			
+			return null;			
+		}
+			
+	}
+			
 		
 	public static bool f_exist(string path) {
 		return FileUtils.test (path, FileTest.EXISTS) && !FileUtils.test (path, FileTest.IS_DIR);
@@ -391,8 +412,7 @@ namespace JSUtils {
 	
 	public class LibInfo {
 		public Binder?[] interfaces;
-		public string? iface_name = null;
-		public string? parent_iface = null;
+		public string? iface = null;
 		public void* handle;
 	}
 	
@@ -400,6 +420,125 @@ namespace JSUtils {
 		if (debug_state) {
 			stderr.printf("%s\n", msg);
 		}
+	}
+	
+	public class ContextEnvironment {
+		public static Gee.HashMap<Context, ContextEnvironment>? environments = null;
+		
+		
+		public string file = "(file)";
+		public string[] argv = new string[0];
+		public string[] environ = Environ.@get();
+		public weak Context context;
+		public string[] required {get; private set;}
+		public string[] search_paths {get; private set;}
+		
+		public void add_required(string path) {
+			_required += path;
+		}
+		
+		public void add_search_path(string path) {
+			_search_paths += path;
+		}
+		
+		public ContextEnvironment(Context c) {
+			this.context = c;
+			_required = new string[0];
+			_search_paths = new string[0];
+			add_search_path( Environment.get_variable("JSUTILS_LIB_DIR") ?? @"/usr/lib/jsutils/$(JSUtils.VERSION)");
+		}
+		
+		public string? get_variable(string v) {
+			return Environ.get_variable(environ, v);
+		}
+		
+		public string? set_variable(string k, string? v) {
+			if (v == null) {
+				var o = Environ.get_variable(environ, k);
+				Environ.unset_variable(environ, k);
+				return o;
+			}
+			
+			return null;
+		}
+		
+		public static ContextEnvironment get_for_context(Context c) {
+			if (environments == null) {
+				environments = new Gee.HashMap<weak Context, ContextEnvironment>();
+			}
+			
+			if (c in environments) {
+				return environments[c];
+			}
+			
+			environments[c] = new ContextEnvironment(c);
+			
+			return environments[c];
+		}
+	}
+	
+    public static string? search_file(string[] paths, owned string query, string? ext = null, bool rel = true) {
+		string? path = null;
+		
+		if (rel) {
+			string[] relp = {"./"};
+			path = search_file(relp, query, ext, false);
+		}
+		
+		if (path == null) {
+			path = query;
+			
+			if (!f_exist(path)) {
+				if (ext != null) {
+					path = path+"."+ext;
+				}
+			
+				if (!f_exist(path)) {
+					foreach (var search in paths) {
+						path = search+"/"+query;
+						if (f_exist(path)) {
+							break;
+						}
+						
+						if (ext != null) {
+							path = search+"/"+query+"."+ext;
+							if (f_exist(path)) {
+								break;
+							}			
+						}
+					}
+				}
+			}
+		}
+		
+		if (ext != null) {
+			var split = path.split(".");
+			
+			if (split[split.length-1] != ext) {
+				return null;
+			
+			}
+		}
+		
+		if (f_exist(path)) {
+			string a = get_absolute_path(path);
+			if (a != null) {
+				return a;
+			}
+		}
+		
+		return null;
+	}	
+	
+	public static string? get_absolute_path(string path) {
+		string stdo;
+		string stde;
+		int status;
+		if (Process.spawn_command_line_sync(@"readlink -f $path", out stdo, out stde, out status)) {
+			return stdo.strip();
+		}
+		
+		return null;
 	}
 	
 	public bool debug_state = false;	
@@ -419,4 +558,7 @@ namespace JSUtils {
     public void exit(int code) {
 		((exit_delegate)dlsym(null, "exit"))(code);
 	}
+	
+	[CCode (cname = "waitpid")] 
+	extern Pid waitpid(Pid pid, int flags, out int status);
 }

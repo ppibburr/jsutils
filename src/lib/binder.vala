@@ -10,6 +10,7 @@ namespace JSUtils {
 		public int n_args = -1;
 		public ValueType?[] atypes;
 		public string[]? anames;
+		public bool is_constructor = false;
 		public BoundFunction(string n, int n_args, ValueType?[] atypes = null, string[]? anames = null, Binder.bound_function func) {
 			this.func = func;
 			this.name = n;
@@ -101,7 +102,10 @@ namespace JSUtils {
 		public delegate void c_cb(JSCore.Object instance, GLib.Value?[] args, JSCore.Context c, out JSCore.Value err);				
 		
 		// Module or Class
-		public BinderType type = BinderType.CLASS;			
+		public BinderType iface_type = BinderType.CLASS;
+		
+		// 			
+		public string refer = "";
 
 		// Store of the generated JSCore.StaticFunction's
 		public JSCore.StaticFunction[] static_functions {get; private set;}

@@ -850,7 +850,7 @@ namespace FFI {
 		
 		JSUtils.LibInfo? ret = new JSUtils.LibInfo();
 		ret.interfaces = {func, func.pointer_binder};
-		ret.iface_name = "FFI";
+		ret.iface = "FFI";
 		
 		return ret;
 	}
