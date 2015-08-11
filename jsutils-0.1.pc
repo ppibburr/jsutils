@@ -1,0 +1,10 @@
+prefix=/usr/lib
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${exec_prefix}/include
+
+Name: jsutils
+Description: Embed JS in to Vala via JavaScriptCoreGTK
+Version: 0.1.0
+Libs: -L${libdir} -ljsutils-0.1
+Cflags: -I${includedir}

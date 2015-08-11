@@ -157,12 +157,13 @@ namespace JSUtils {
 			
 				
 				callAsFunction = (c, fun, self, a, out e) => {
+					
 					//print("Hahaha\n");
 					var static_binder = v2str(((JSUtils.Object)self).get_prop(c, "static_binder"));
 					var tname         = v2str(((JSUtils.Object)fun).get_prop(c, "name"));
 					var binder        = v2str(((JSUtils.Object)self).get_prop(c, "binder"));
 					//print("EOHahaha\n");
-							
+					
 					var args = new GLib.Value?[0];
 					foreach (unowned JSCore.ConstValue v in a) {
 						args += jval2gval(c, (JSCore.Value)v, out e);
@@ -227,17 +228,9 @@ namespace JSUtils {
 			Type.from_instance(this).set_qdata(Quark.from_string("constructor"),(void*) cb);
 		}
 		
-		public JSCore.Object set_constructor_on(JSCore.Context c, owned JSCore.Object? where=null, owned Binder? prototype_class = null) {
+		public JSCore.Object set_constructor_on(JSCore.Context c, JSCore.Object? where) {
 			debug("SET_CONSTRUCT: 001");
-			
-			if (prototype_class == null) {
-				prototype_class = this.prototype;
-			}
-			
-	;
-			if (where==null) {
-				where = c.get_global_object();
-			}
+
 			 
 			
 			var con = (JSUtils.Object)new JSCore.Object.constructor(c, this.js_class, (ctx, self, args, out e)=>{
@@ -273,8 +266,8 @@ namespace JSUtils {
 			
 			((JSUtils.Object)where).set_prop(c, this.definition.className, con.to_gval());
 				
-			if (prototype_class != null) {
-				prototype_class.set_as_prototype(c, con);
+			if (prototype != null) {
+				prototype.set_as_prototype(c, con);
 			}	
 			
 			debug("SET_CONSTRUCT: 002");
@@ -282,13 +275,21 @@ namespace JSUtils {
 		}
 		
 		public JSCore.Object create_toplevel_module(JSCore.Context c) {
-			var m = new JSUtils.Object(c, this.js_class, null);
 			var o = (JSUtils.Object)c.get_global_object();
 			
+			return create_module(c, o);
+		}
+		
+		public JSCore.Object create_module(JSCore.Context c, JSCore.Object where) {
+			
+			var m = new JSUtils.Object(c, this.js_class, null);
+			
 			GLib.Value v = Type.from_instance(this).name();
+			
 			m.set_prop(c, "static_binder", v);
-					
-			o.set_prop(c, this.definition.className, m.to_gval());
+			//m.set_prop(c, "binder", v);
+								
+			((JSUtils.Object)where).set_prop(c, this.definition.className, m.to_gval());
 		
 			return m;
 		}
@@ -303,12 +304,12 @@ namespace JSUtils {
 				obj.set_prototype(c, p);				
 		} 
 		
-		public void init_global(JSCore.Context c, Binder? static_binder = null) {
+		public void init_global(JSCore.Context c) {
 			GLib.Value? val = Type.from_instance(this).name();
 			
 			((JSUtils.Object)c.get_global_object()).set_prop(c, "binder", val);
 		
-			set_constructor_on(c, null, static_binder);
+			set_constructor_on(c, null);
 		}
 		
 	}

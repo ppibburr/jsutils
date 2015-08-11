@@ -231,7 +231,16 @@ namespace JSUtils {
 		public GLib.Value? exec(string code, JSCore.Object? self = null, out JSCore.Value e = null) {
 			var js = new JSCore.String.with_utf8_c_string(code);
 			//JSCore.Value e2;
-			var result = jval2gval(this, ((JSCore.Context)this).evaluate_script(js, null, null, 0, out e), null);
+			var j = ((JSCore.Context)this).evaluate_script(js, null, null, 0, out e);
+			
+			if (j == null) {
+				debug("null result");
+				debug(object_to_string(this, (JSCore.Object)e));
+				
+				return null;
+			}
+			
+			var result = jval2gval(this, j, null);
 
 			return result;
 		}
@@ -249,7 +258,7 @@ namespace JSUtils {
 		}
 		
 		public JSUtils.Binder add_toplevel_class(JSUtils.Binder klass) {
-			klass.set_constructor_on(this);
+			klass.set_constructor_on(this, this.get_global_object());
 			
 			return klass;
 		}	
@@ -270,6 +279,14 @@ namespace JSUtils {
 			
 			set {
 				_search_paths = value;
+			}
+		}
+		
+		public static void _add_search_path(string path) {
+			if (path in search_paths) {
+			
+			} else {
+				_search_paths += path;
 			}
 		}
 			
@@ -358,6 +375,13 @@ namespace JSUtils {
 			return binders;
 		}	
 		
+		public bool init_core() {
+			if (load_so("bridge.so") == null) {
+				return false;
+			}
+			
+			return true;
+		}
 	}
 		
 		
