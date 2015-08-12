@@ -374,7 +374,7 @@ namespace JSUtils {
 		}	
 		
 		public bool init_core() {
-			if (load_so("bridge.so") == null) {
+			if (load_so("bridge") == null) {
 				return false;
 			}
 			
@@ -479,7 +479,7 @@ namespace JSUtils {
 	
     public static string? search_file(string[] paths, owned string query, string? ext = null, bool rel = true) {
 		string? path = null;
-		
+		debug(query);
 		if (rel) {
 			string[] relp = {"./"};
 			path = search_file(relp, query, ext, false);
@@ -495,6 +495,7 @@ namespace JSUtils {
 			
 				if (!f_exist(path)) {
 					foreach (var search in paths) {
+						debug(search);
 						path = search+"/"+query;
 						if (f_exist(path)) {
 							break;
@@ -502,6 +503,7 @@ namespace JSUtils {
 						
 						if (ext != null) {
 							path = search+"/"+query+"."+ext;
+							debug(path);
 							if (f_exist(path)) {
 								break;
 							}			

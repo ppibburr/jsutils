@@ -7,6 +7,8 @@ namespace Bridge {
 			base("JSUtils");
 			
 			this.context = c;
+			this.refer   = "JSUtils";
+			this.iface_type = BinderType.MODULE;
 			
 			ValueType?[] vtypes = {ValueType.OBJECT};
 			string[] vnames      = {"Array<String>"};
@@ -184,7 +186,9 @@ namespace Bridge {
 	
 	public class Console : Binder {
 		public Console() {
-			base("console");
+			base("Console");
+			
+			this.refer = "Console";
 			
 			bind("log", (self,args, c, out e ) => {
 				foreach(var a in args) {
@@ -230,7 +234,8 @@ namespace Bridge {
 		
 		if (o.get_prop(c, "console") == null) {
 			var console = new Console();
-			console.create_toplevel_module(c);
+			c.add_toplevel_class(console);
+			c.exec("var console = new Console();");
 			interfaces += console;
 		}
 		

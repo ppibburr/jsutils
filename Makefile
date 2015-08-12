@@ -14,7 +14,8 @@ install:
 	cp -f jsutils-0.1.pc /usr/lib/pkgconfig/
 	cp -f jsutils-0.1.deps /usr/share/vala/vapi/
 	cp -f jsutils-0.1.deps $(JSUTILS_LIB_DIR)/vapi/
-	
+	cp -f vapi/* $(JSUTILS_LIB_DIR)/vapi/
+		
 uninstall:
 	rm -rf $(JSUTILS_LIB_DIR)/
 	rm /usr/lib/libjsutils-0.1.so
